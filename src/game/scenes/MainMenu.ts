@@ -2,6 +2,7 @@ import { GameObjects, Scene } from 'phaser';
 
 import { EventBus } from '../EventBus';
 import StaticGroup = Phaser.Physics.Arcade.StaticGroup;
+import SpriteWithDynamicBody = Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
 
 export class MainMenu extends Scene
 {
@@ -9,9 +10,10 @@ export class MainMenu extends Scene
     star: GameObjects.Image;
     ground: GameObjects.Image;
     logo: GameObjects.Image;
-    title: GameObjects.Text;
-    logoTween: Phaser.Tweens.Tween | null;
-
+    platforms: StaticGroup;
+    player: SpriteWithDynamicBody;
+    cursors: Phaser.Types.Input.Keyboard.CursorKeys|undefined;
+    
     constructor ()
     {
         super('MainMenu');
@@ -27,53 +29,69 @@ export class MainMenu extends Scene
         this.platforms.create(600, 400, 'ground');
         this.platforms.create(50, 250, 'ground');
         this.platforms.create(750, 220, 'ground');
+
+        this.player = this.physics.add.sprite(100, 450, 'dude');
         
+        this.player.setBounce(0.2);
+        this.player.setCollideWorldBounds(true);
+
+        //this.player.body.setGravityY(300);
+
+        this.anims.create({
+            key: 'left',
+            frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: 'turn',
+            frames: [ { key: 'dude', frame: 4 } ],
+            frameRate: 20
+        });
+
+        this.anims.create({
+            key: 'right',
+            frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }),
+            frameRate: 10,
+            repeat: -1
+        });
         
+        this.cursors = this.input.keyboard?.createCursorKeys();
+        
+        this.physics.add.collider(this.player, this.platforms);
+
         EventBus.emit('current-scene-ready', this);
     }
     
-    changeScene ()
-    {
-        if (this.logoTween)
-        {
-            this.logoTween.stop();
-            this.logoTween = null;
-        }
-
-        this.scene.start('Game');
+    preload () {
+        this.load.image('ground', 'assets/platform.png');
+        this.load.spritesheet('dude', 'assets/dude.png', { frameWidth: 32, frameHeight: 48 });
     }
-
-    moveLogo (vueCallback: ({ x, y }: { x: number, y: number }) => void)
-    {
-        if (this.logoTween)
+    
+    update () {
+        if (this.cursors?.left.isDown)
         {
-            if (this.logoTween.isPlaying())
-            {
-                this.logoTween.pause();
-            }
-            else
-            {
-                this.logoTween.play();
-            }
-        } 
+            this.player.setVelocityX(-160);
+
+            this.player.anims.play('left', true);
+        }
+        else if (this.cursors?.right.isDown)
+        {
+            this.player.setVelocityX(160);
+
+            this.player.anims.play('right', true);
+        }
         else
         {
-            this.logoTween = this.tweens.add({
-                targets: this.logo,
-                x: { value: 750, duration: 3000, ease: 'Back.easeInOut' },
-                y: { value: 80, duration: 1500, ease: 'Sine.easeOut' },
-                yoyo: true,
-                repeat: -1,
-                onUpdate: () => {
-                    if (vueCallback)
-                    {
-                        vueCallback({
-                            x: Math.floor(this.logo.x),
-                            y: Math.floor(this.logo.y)
-                        });
-                    }
-                }
-            });
+            this.player.setVelocityX(0);
+
+            this.player.anims.play('turn');
+        }
+
+        if (this.cursors?.up.isDown && this.player.body.touching.down)
+        {
+            this.player.setVelocityY(-330);
         }
     }
 }
