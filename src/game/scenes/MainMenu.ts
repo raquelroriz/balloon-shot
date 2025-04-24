@@ -1,6 +1,5 @@
 import { GameObjects, Scene } from 'phaser';
 
-import { EventBus } from '../EventBus';
 import StaticGroup = Phaser.Physics.Arcade.StaticGroup;
 import SpriteWithDynamicBody = Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
 
@@ -13,6 +12,7 @@ export class MainMenu extends Scene
     platforms: StaticGroup;
     player: SpriteWithDynamicBody;
     cursors: Phaser.Types.Input.Keyboard.CursorKeys|undefined;
+    stars: Phaser.Physics.Arcade.Group;
     
     constructor ()
     {
@@ -24,7 +24,9 @@ export class MainMenu extends Scene
 
         this.background = this.add.image(512, 384, 'background');
         this.star = this.add.image(400, 300, 'star');
+        
         this.platforms = this.physics.add.staticGroup();
+        
         this.platforms.create(400, 568, 'ground').setScale(2).refreshBody();
         this.platforms.create(600, 400, 'ground');
         this.platforms.create(50, 250, 'ground');
@@ -59,10 +61,35 @@ export class MainMenu extends Scene
         
         this.cursors = this.input.keyboard?.createCursorKeys();
         
+        
         this.physics.add.collider(this.player, this.platforms);
 
-        EventBus.emit('current-scene-ready', this);
+        this.stars = this.physics.add.group({
+            key: 'star',
+            repeat: 11,
+            setXY: { x: 12, y: 0, stepX: 70 }
+        });
+
+
+        this.stars.children.iterate(function(child) {
+            const sprite = child as unknown as Phaser.Physics.Arcade.Sprite;
+            sprite.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+            sprite.setScale(0.5); // 50% do tamanho original
+            return true; // or return null;
+        });
+
+
+        this.physics.add.collider(this.stars, this.platforms);
+
+
+        const collectStar: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (_player, star) => {
+            (star as Phaser.Physics.Arcade.Sprite).disableBody(true, true);
+        }
+
+        this.physics.add.overlap(this.player, this.stars, collectStar, undefined, this);
     }
+
+    
     
     preload () {
         this.load.image('ground', 'assets/platform.png');
